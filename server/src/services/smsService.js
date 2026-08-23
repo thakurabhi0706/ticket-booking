@@ -1,16 +1,10 @@
 /**
- * smsService.js — SMS delivery, dependency-free.
+ * smsService.js — SMS delivery, dependency-free. Named adapters behind one `sendSms`.
  *
- * Same shape as emailService: named provider adapters behind one `sendSms`, so the
- * caller never learns which carrier is in use. Every provider here speaks plain HTTPS —
- * no vendor SDK is pulled in.
- *
- * Providers:
- *   console  — default. Logs the message instead of sending. Lets the whole notification
- *              path be exercised (and tested) with no account and no spend.
- *   twilio   — global; Indian destinations additionally require DLT registration.
- *   msg91    — India-focused; needs a DLT-approved template id.
- *   fast2sms — India-only, no DLT for transactional route on some plans.
+ *   console  — default; logs instead of sending, so the path works with no account.
+ *   twilio   — global; Indian destinations also require DLT registration.
+ *   msg91    — India; needs a DLT-approved template id.
+ *   fast2sms — India only.
  */
 import { config } from '../config.js';
 
@@ -19,11 +13,8 @@ const MSG91_URL = 'https://control.msg91.com/api/v5/flow/';
 const FAST2SMS_URL = 'https://www.fast2sms.com/dev/bulkV2';
 
 /**
- * Normalise to E.164, which every provider below expects.
- *
- * A bare 10-digit number is assumed to be in SMS_DEFAULT_COUNTRY_CODE — that is what
- * people actually type into a checkout form, and rejecting it would silently drop most
- * real numbers.
+ * Normalise to E.164. A bare 10-digit number takes SMS_DEFAULT_COUNTRY_CODE — that is
+ * what people type into a form, and rejecting it would drop most real numbers.
  */
 export function toE164(raw) {
   const trimmed = String(raw || '').trim();
@@ -75,8 +66,7 @@ const providers = {
   },
 
   async msg91(to, body) {
-    // MSG91 flows carry the text in a DLT-approved template; the body is passed as a
-    // variable rather than as free text.
+    // MSG91 flows carry the text as a template variable, not free text.
     const res = await fetch(MSG91_URL, {
       method: 'POST',
       headers: {
@@ -122,7 +112,7 @@ const providers = {
   },
 };
 
-export function activeSmsProvider() {
+function activeSmsProvider() {
   const name = (config.SMS_PROVIDER || 'console').toLowerCase();
   if (!providers[name]) {
     throw new Error(`Unknown SMS_PROVIDER "${name}" (expected: ${Object.keys(providers).join(', ')})`);
@@ -141,10 +131,7 @@ export function smsEnabled() {
   }
 }
 
-/**
- * Send one SMS. Resolves to { id, to } or throws with the provider's own words.
- * Callers treat a failure as non-fatal — the booking is already confirmed.
- */
+/** Resolves to { id, to }, or throws. Callers treat failure as non-fatal. */
 export async function sendSms(rawNumber, body) {
   const provider = activeSmsProvider();
   const to = toE164(rawNumber);
@@ -160,7 +147,7 @@ export async function sendSms(rawNumber, body) {
   return { ...result, to };
 }
 
-/** Boot-time visibility, mirroring reportMailConfig(). */
+/** Boot-time report, mirroring reportMailConfig(). */
 export function reportSmsConfig() {
   if (!config.SMS_ENABLED) {
     console.log('[sms] disabled (SMS_ENABLED=false) — booking notifications go by email only.');
@@ -183,4 +170,4 @@ export function reportSmsConfig() {
   }
 }
 
-export const __private = { providers, toE164 };
+export const __private = { providers, toE164 };   // for tests/notify.test.js

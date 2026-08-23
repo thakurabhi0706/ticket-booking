@@ -6,16 +6,12 @@ import EventFormModal from '../components/EventFormModal';
 import CreateShowForm from '../components/CreateShowForm';
 
 /**
- * AdminDashboard — the platform control centre at /admin.
+ * AdminDashboard — platform control centre at /admin. Violet chrome via .admin-scope,
+ * platform-wide counters, every event regardless of owner.
  *
- * Deliberately a different surface from the customer app and from the organiser's own
- * dashboard: violet chrome (via .admin-scope, which re-points --col-accent), platform-wide
- * counters, and every event regardless of owner.
- *
- * The publish model is the thing this screen exists to make obvious. /api/events only
- * returns events that have a future SCHEDULED show, so a freshly created event is
- * invisible to customers until a show is added. Each row is therefore badged LIVE or
- * DRAFT, and creating an event drops straight into show scheduling.
+ * /api/events only returns events with a future SCHEDULED show, so a new event is
+ * invisible to customers until one is added. Rows are badged LIVE/DRAFT for that reason,
+ * and creating an event drops straight into show scheduling.
  */
 
 function StatTile({ label, value, hint, accent }) {
@@ -46,8 +42,7 @@ export default function AdminDashboard() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState(null);
 
-  // The event whose show-scheduling panel is expanded. Set automatically right after a
-  // create, because that is the step that actually puts the event in front of customers.
+  // Expanded automatically after a create — that is the step that reaches customers.
   const [schedulingFor, setSchedulingFor] = useState(null);
 
   const [summaryFor, setSummaryFor] = useState(null);
@@ -55,7 +50,7 @@ export default function AdminDashboard() {
   const [busyId, setBusyId] = useState(null);
 
   const loadAll = useCallback(async () => {
-    // Settled, not all: a failing stats query should not blank the event list too.
+    // Settled, not all: a failing stats query must not blank the event list.
     const [statsRes, eventsRes, orgsRes] = await Promise.allSettled([
       api.get('/admin/stats'),
       api.get('/organiser/events'),
@@ -79,7 +74,7 @@ export default function AdminDashboard() {
     setEditing(null);
     await loadAll();
     if (created) {
-      // Straight into step 2 — an event with no show reaches nobody.
+      // Step 2 — an event with no show reaches nobody.
       setSchedulingFor(saved.id);
       setNotice(`"${saved.title}" created. Schedule its first show below to put it on sale.`);
     } else {

@@ -2,14 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import api from '../api';
 
 /**
- * EventFormModal — create or edit an event.
+ * EventFormModal — create (`event` null) or edit an event.
  *
- * `event` null  → create mode (POST /organiser/events)
- * `event` set   → edit mode   (PATCH /organiser/events/:id)
- *
- * `organisers` is non-empty only for admins; it lets them publish under another
- * organiser's account. Organisers never see the field and the server rejects the
- * parameter from them regardless.
+ * `organisers` is non-empty only for admins, letting them publish under another
+ * organiser's account; the server rejects the parameter from anyone else.
  */
 
 const EMPTY = {
@@ -30,8 +26,7 @@ export default function EventFormModal({ event, organisers = [], currentUser, on
   const [fieldErrors, setFieldErrors] = useState({});
   const titleRef = useRef(null);
 
-  // Seed the form from the event being edited. Null columns become '' so the inputs
-  // stay controlled — React warns loudly the moment one flips to undefined.
+  // Null columns become '' so inputs stay controlled.
   useEffect(() => {
     setForm(event
       ? {
@@ -52,7 +47,6 @@ export default function EventFormModal({ event, organisers = [], currentUser, on
     titleRef.current?.focus();
     const onKey = (e) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', onKey);
-    // The page behind a modal must not scroll under it.
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
@@ -67,7 +61,7 @@ export default function EventFormModal({ event, organisers = [], currentUser, on
     setFieldErrors(fe => (fe[key] ? { ...fe, [key]: null } : fe));
   };
 
-  /** Mirror of the server's rules, so the user is told before a round trip. */
+  /** Mirrors the server's rules, so the user is told before a round trip. */
   const validateLocal = () => {
     const errs = {};
     if (form.title.trim().length < 2) errs.title = 'Title must be at least 2 characters.';
@@ -89,8 +83,7 @@ export default function EventFormModal({ event, organisers = [], currentUser, on
     setFieldErrors(errs);
     if (Object.keys(errs).length) return;
 
-    // Only send what the user filled in: the PATCH uses COALESCE, so an empty string
-    // would otherwise blank a column the user never touched.
+    // Only what was filled in: PATCH uses COALESCE, so '' would blank a column.
     const payload = {
       title: form.title.trim(),
       type: form.type,

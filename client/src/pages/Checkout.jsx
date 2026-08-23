@@ -21,9 +21,8 @@ export default function Checkout() {
   const [error, setError]     = useState(null);
   const beaconSent = useRef(false);
 
-  // AuthContext resolves /auth/me asynchronously, so on a direct load `user` is still
-  // null at mount and the initial state above lands empty. Fill the blanks once it
-  // arrives, without clobbering anything already typed.
+  // /auth/me resolves after mount, so the initial state above lands empty on a direct
+  // load. Fill the blanks once it arrives, without clobbering what was typed.
   useEffect(() => {
     if (!user) return;
     setForm(f => ({

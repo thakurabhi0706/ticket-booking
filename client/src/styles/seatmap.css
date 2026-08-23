@@ -2,8 +2,8 @@
    seatmap.css — Seat map and booking UI styles
    ============================================================ */
 
-/* One token drives seat boxes, row labels and grid tracks together — they must stay
-   the same height or the labels drift out of line with their rows. */
+/* One token for seat boxes, row labels and grid tracks — they must match in height
+   or the labels drift out of line with their rows. */
 :root {
   --seat-size: 34px;
   --seat-gap: 5px;
@@ -26,7 +26,7 @@
   text-transform: uppercase;
   max-width: 560px;
   border-radius: 0 0 50% 50%;
-  /* Tips the screen away from the viewer so the map reads as a room, not a table. */
+  /* Tips away from the viewer, so the map reads as a room. */
   transform: perspective(560px) rotateX(26deg);
   transform-origin: 50% 0;
   background: linear-gradient(to bottom, rgba(212,168,83,0.16), transparent);

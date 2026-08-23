@@ -7,12 +7,7 @@ import { E } from '../utils/errors.js';
 const router = express.Router();
 const isAdmin = [requireAuth, requireRole('ADMIN')];
 
-/**
- * GET /api/admin/stats — platform-wide counters for the admin control centre.
- *
- * Deliberately one round trip: the dashboard renders these together, and six separate
- * queries against a hosted DB is six times the latency for the same screen.
- */
+/** GET /api/admin/stats — one round trip; the dashboard renders these together. */
 router.get('/stats', ...isAdmin, async (req, res, next) => {
   try {
     const { rows: [stats] } = await pool.query(`
@@ -155,8 +150,8 @@ router.post('/venues/:id/seats/bulk', ...isAdmin, async (req, res, next) => {
 
     const { rows: rowLabels, seatsPerRow, categoryMap, aisleAfterCols = [] } = req.body;
 
-    // Build the whole grid in memory, then insert it in one statement.
-    // grid_col skips a column after each aisle position so the map renders real gaps.
+    // Built in memory, inserted in one statement. grid_col skips a column after each
+    // aisle so the map renders real gaps.
     const cats = [], labels = [], numbers = [], gridRows = [], gridCols = [];
     for (let ri = 0; ri < rowLabels.length; ri++) {
       const rowLabel = rowLabels[ri];

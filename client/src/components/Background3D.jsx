@@ -1,16 +1,12 @@
 import { useEffect, useRef } from 'react';
 
 /**
- * Background3D — an ambient 3D particle field rendered on a canvas.
+ * Background3D — ambient 3D particle field on a canvas.
  *
- * Hand-rolled rather than pulled from three.js: the project's dependency policy keeps the
- * client at three production packages, and this needs only a perspective divide and a
- * couple of rotation matrices.
- *
- * Points live in a cube around the origin, spin slowly on Y and X, and are projected to
- * 2D. Near neighbours are joined so the field reads as a constellation rather than noise.
- * Everything is drawn behind the app (fixed, pointer-events:none) so it never intercepts
- * a seat click.
+ * Hand-rolled rather than three.js: the client keeps to three production packages, and
+ * this needs only a perspective divide and two rotation matrices. Points spin in a cube
+ * and near neighbours are joined, so the field reads as a constellation. Drawn behind
+ * the app with pointer-events:none so it never intercepts a seat click.
  */
 
 const POINT_COUNT = 150;
@@ -24,7 +20,7 @@ function createPoints() {
     x: (Math.random() - 0.5) * SPREAD * 2,
     y: (Math.random() - 0.5) * SPREAD * 2,
     z: (Math.random() - 0.5) * SPREAD * 2,
-    // A little per-point drift stops the field from looking like one rigid object.
+    // Per-point drift, so the field is not one rigid object.
     dx: (Math.random() - 0.5) * 0.22,
     dy: (Math.random() - 0.5) * 0.22,
     dz: (Math.random() - 0.5) * 0.22,
@@ -53,7 +49,7 @@ export default function Background3D() {
     let targetTiltX = 0, targetTiltY = 0, tiltX = 0, tiltY = 0;
 
     const resize = () => {
-      dpr = Math.min(window.devicePixelRatio || 1, 2); // cap: 3x on a 4K panel is wasted fill
+      dpr = Math.min(window.devicePixelRatio || 1, 2); // 3x on a 4K panel is wasted fill
       width = window.innerWidth;
       height = window.innerHeight;
       canvas.width = Math.floor(width * dpr);
@@ -84,18 +80,17 @@ export default function Background3D() {
         const p = points[i];
 
         p.x += p.dx; p.y += p.dy; p.z += p.dz;
-        // Wrap at the cube face so density stays even instead of thinning at the edges.
+        // Wrap at the cube face, else density thins at the edges.
         if (p.x >  SPREAD) p.x = -SPREAD; else if (p.x < -SPREAD) p.x =  SPREAD;
         if (p.y >  SPREAD) p.y = -SPREAD; else if (p.y < -SPREAD) p.y =  SPREAD;
         if (p.z >  SPREAD) p.z = -SPREAD; else if (p.z < -SPREAD) p.z =  SPREAD;
 
-        // Rotate about Y, then about X.
         const x1 =  p.x * cosY + p.z * sinY;
         const z1 = -p.x * sinY + p.z * cosY;
         const y2 =  p.y * cosX - z1 * sinX;
         const z2 =  p.y * sinX + z1 * cosX;
 
-        // Keep the divisor positive so points behind the camera don't invert on screen.
+        // Keep positive, else points behind the camera invert on screen.
         const depth = z2 + SPREAD * 1.6;
         const scale = FOCAL / Math.max(depth, 1);
 
@@ -120,7 +115,7 @@ export default function Background3D() {
           if (distSq > LINK_DISTANCE * LINK_DISTANCE) continue;
 
           const dist = Math.sqrt(distSq);
-          // Fade with both separation and depth, so far links recede instead of flickering.
+          // Fade with separation and depth, else far links flicker.
           const alpha = (1 - dist / LINK_DISTANCE) * 0.16 * Math.min(a.scale, b.scale);
           if (alpha <= 0.004) continue;
 
@@ -159,13 +154,13 @@ export default function Background3D() {
       if (frame !== null) { cancelAnimationFrame(frame); frame = null; }
     };
 
-    // A background animation has no business burning CPU on a hidden tab.
+    // No CPU on a hidden tab.
     const onVisibility = () => (document.hidden ? stop() : start());
 
     resize();
 
     if (reduceMotion) {
-      draw();   // one static frame — the texture without the motion
+      draw();   // one static frame — texture without motion
     } else {
       window.addEventListener('pointermove', onPointerMove);
       document.addEventListener('visibilitychange', onVisibility);
@@ -184,7 +179,7 @@ export default function Background3D() {
   return (
     <div className="bg3d" aria-hidden="true">
       <canvas ref={canvasRef} className="bg3d-canvas" />
-      {/* Slow-drifting colour wash behind the particles. Pure CSS so it costs no JS frames. */}
+      {/* Colour wash — pure CSS, so it costs no JS frames. */}
       <div className="bg3d-orb bg3d-orb-a" />
       <div className="bg3d-orb bg3d-orb-b" />
       <div className="bg3d-orb bg3d-orb-c" />

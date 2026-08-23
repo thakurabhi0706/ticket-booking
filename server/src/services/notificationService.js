@@ -1,24 +1,16 @@
 /**
- * notificationService.js — Who gets told about a booking, and over which channel.
+ * notificationService.js — Who gets told about a booking, over which channel.
  *
- * The booking routes accept a `customer` block straight from the checkout form, so the
- * address on a booking is whatever the buyer typed — not necessarily the address they
- * registered with. A confirmation sent only there can miss the account holder entirely.
- *
- * This module resolves recipients from the ACCOUNT first, then adds the checkout contact
- * as an extra recipient when it differs, and fans the message out over every configured
- * channel. Delivery itself stays in emailService / smsService; this decides the audience.
+ * Checkout supplies whatever address the buyer typed, which need not be the one they
+ * registered with, so recipients are resolved from the ACCOUNT first and the checkout
+ * contact is added only when it differs. Delivery itself stays in email/smsService.
  */
 import { pool } from '../db/pool.js';
 import { config } from '../config.js';
 import { sendEmail } from './emailService.js';
 import { sendSms, smsEnabled } from './smsService.js';
 
-/**
- * Load the registered contact details for an account.
- * Returns null rather than throwing: a notification must never break a booking that has
- * already been committed and paid for.
- */
+/** Returns null rather than throwing: a notification must never break a paid booking. */
 async function loadAccount(userId) {
   try {
     const { rows: [user] } = await pool.query(
@@ -34,10 +26,8 @@ async function loadAccount(userId) {
 const normalise = (email) => (email || '').trim().toLowerCase();
 
 /**
- * Email addresses to notify, registered address first.
- *
- * De-duplicated case-insensitively, because CITEXT means "A@b.com" and "a@b.com" are the
- * same account and sending twice would just look broken to the customer.
+ * Addresses to notify, registered first. De-duplicated case-insensitively: email is
+ * CITEXT, so "A@b.com" and "a@b.com" are one account and must not be mailed twice.
  */
 export function resolveEmailRecipients(account, contactEmail) {
   const seen = new Set();
@@ -52,11 +42,7 @@ export function resolveEmailRecipients(account, contactEmail) {
   return out;
 }
 
-/**
- * Phone numbers to notify, registered first. SMS costs money per message and a booking
- * confirmation is not worth sending twice, so only one number is used: the account's,
- * falling back to whatever checkout collected.
- */
+/** One number only — SMS is billed per message. Account's, else checkout's. */
 export function resolvePhone(account, contactPhone) {
   const registered = (account?.phone || '').trim();
   if (registered) return { phone: registered, kind: 'registered' };
@@ -65,7 +51,7 @@ export function resolvePhone(account, contactPhone) {
   return null;
 }
 
-/** Compact SMS body — one segment where possible, since carriers bill per 160 chars. */
+/** Compact body — carriers bill per 160 chars. */
 function bookingSms({ name, reference, eventTitle, startsAt, venueName, seatCount }) {
   const when = new Date(startsAt).toLocaleString('en-IN', {
     timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
@@ -76,10 +62,8 @@ function bookingSms({ name, reference, eventTitle, startsAt, venueName, seatCoun
 }
 
 /**
- * Fan a confirmed booking out to every channel.
- *
- * Each channel is awaited independently: a failing SMS provider must not stop the email,
- * and neither may throw into the caller, which has already committed the booking.
+ * Fan out to every channel independently: a failing SMS must not stop the email, and
+ * neither may throw into the caller, which has already committed the booking.
  */
 export async function notifyBookingConfirmed({ userId, customer, booking }) {
   const account = await loadAccount(userId);
@@ -92,8 +76,7 @@ export async function notifyBookingConfirmed({ userId, customer, booking }) {
         ...booking,
         to: email,
         name,
-        // A copy to the checkout address is labelled, so a customer who typed a second
-        // address does not think they were charged twice.
+        // Labelled, so a second address does not read as a second charge.
         copyNotice: kind === 'contact'
           ? 'This is a copy sent to the contact address you entered at checkout.'
           : null,

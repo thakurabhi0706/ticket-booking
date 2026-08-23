@@ -1,11 +1,8 @@
 /**
- * emailService.js — Email delivery via Resend API (zero extra dependencies).
+ * emailService.js — Email delivery, dependency-free.
  *
- * Reliability rules (per spec §9.5):
- *  - Always called AFTER a DB transaction commits (via setImmediate)
- *  - Errors are logged and retried once with a 2 s delay
- *  - An email provider outage NEVER rolls back a confirmed booking
- *  - MAIL_REDIRECT_TO: when set, all mail goes to that address (free-tier workaround)
+ * Always called after the transaction commits: a provider outage must never roll back a
+ * confirmed booking. Failures are retried once, then logged.
  */
 import { config } from '../config.js';
 import { pool } from '../db/pool.js';
@@ -89,13 +86,7 @@ const templates = {
   BOOKING_CANCELLED: { subject: (d) => `Booking cancelled — ${d.reference}`,                html: bookingCancelledHtml },
 };
 
-/**
- * Sender identity.
- *
- * MAIL_FROM is written in the RFC-5322 style Resend takes directly ("Name <a@b.c>").
- * Brevo instead wants the name and address as separate JSON fields, so parse once here
- * rather than making each adapter re-derive it.
- */
+/** Resend takes MAIL_FROM as `Name <a@b.c>`; Brevo wants the parts split. */
 function parseFrom() {
   const raw = (config.MAIL_FROM || '').trim();
   const m = raw.match(/^\s*(.*?)\s*<([^>]+)>\s*$/);
@@ -114,12 +105,9 @@ async function providerError(provider, res) {
 }
 
 /**
- * Transport adapters. Each takes the same arguments and resolves to { id }, so the
- * delivery policy below (redirect / fallback / retry) is written once and is completely
- * unaware of which service is carrying the mail.
- *
- * `attachments` arrive in Resend's shape ({ filename, content }) because that is what
- * sendEmail already builds; the Brevo adapter renames the fields on the way out.
+ * Transport adapters, each resolving to { id }, so the delivery policy below is written
+ * once and never learns which service carries the mail. `attachments` arrive in Resend's
+ * shape; the Brevo adapter renames the fields on the way out.
  */
 const providers = {
   async resend(to, subject, html, attachments) {
@@ -178,10 +166,7 @@ function post(to, subject, html, attachments) {
   return providers[activeProvider()](to, subject, html, attachments);
 }
 
-/**
- * Called once at boot. A mail transport that is selected but unusable would otherwise
- * only reveal itself as tickets quietly never arriving, so say it at startup instead.
- */
+/** Boot-time report: an unusable transport otherwise shows up only as missing tickets. */
 export function reportMailConfig() {
   let provider;
   try {
@@ -209,12 +194,8 @@ export function reportMailConfig() {
 }
 
 /**
- * Detects "this provider will not send to that recipient yet".
- *
- * Resend without a verified domain answers 403 "You can only send testing emails to your
- * own email address". Brevo refuses an unverified sender with 400/403 naming the sender.
- * Both are provider policy rather than a fault in the booking flow, so they trigger the
- * fallback copy instead of being logged as a plain failure.
+ * Provider policy ("sender not verified yet"), not a fault in the booking flow — so it
+ * triggers the fallback copy rather than a plain failure. Resend answers 403, Brevo 400.
  */
 function isRecipientNotAllowed(err) {
   if (err.status !== 403 && err.status !== 400) return false;
@@ -235,8 +216,7 @@ async function deliver(to, subject, html, attachments = []) {
     return { id: 'mock', to };
   }
 
-  // MAIL_REDIRECT_TO is a deliberate override (staging/demo): everything goes to one
-  // inbox. Left empty — the default — mail goes to the person who actually booked.
+  // Deliberate staging override: everything to one inbox. Empty = the real booker.
   if (config.MAIL_REDIRECT_TO) {
     const result = await post(config.MAIL_REDIRECT_TO, `[To: ${to}] ${subject}`, html, attachments);
     return { ...result, to: config.MAIL_REDIRECT_TO, redirected: true };
@@ -246,8 +226,7 @@ async function deliver(to, subject, html, attachments = []) {
     const result = await post(to, subject, html, attachments);
     return { ...result, to };
   } catch (err) {
-    // The customer's own address was refused by the provider. Keep a copy reaching the
-    // operator so the booking is not silently mail-less, and say plainly why.
+    // Recipient refused: keep a copy reaching the operator rather than losing the mail.
     if (isRecipientNotAllowed(err) && config.MAIL_FALLBACK_TO && config.MAIL_FALLBACK_TO !== to) {
       console.warn(
         `[email] ${activeProvider()} refused ${to}: ${err.providerBody}\n` +
@@ -282,8 +261,7 @@ export async function sendEmail(template, data) {
   }
 
   let status = 'SENT', error = null, providerId = null;
-  // The address the provider actually accepted, which is data.to unless a redirect or
-  // fallback kicked in. Logging the intended address only would hide that difference.
+  // What the provider actually accepted — differs from data.to on redirect/fallback.
   let deliveredTo = data.to;
 
   // Try once, then retry once after 2 s
@@ -314,11 +292,5 @@ export async function sendEmail(template, data) {
   } catch { /* ignore audit log failures */ }
 }
 
-/**
- * Internals exposed for tests/email.test.js only.
- *
- * These are pure request-building/policy functions; exporting them lets the suite verify
- * the wire format of each provider with a stubbed fetch, without a network call, an API
- * key, or a row in email_log.
- */
+/** Exposed for tests/email.test.js: lets it assert each provider's wire format. */
 export const __private = { providers, parseFrom, isRecipientNotAllowed, deliver, activeProvider };

@@ -11,7 +11,6 @@ import { clientCount } from './realtime/sse.js';
 import { reportMailConfig } from './services/emailService.js';
 import { reportSmsConfig } from './services/smsService.js';
 
-// Routes
 import authRoutes      from './routes/auth.js';
 import eventRoutes     from './routes/events.js';
 import venueRoutes     from './routes/venues.js';
@@ -32,7 +31,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 
-// Trust proxy for rate-limiting by IP on Render
+// Trust the proxy so rate limiting sees the real client IP.
 app.set('trust proxy', 1);
 
 // ── Health check ───────────────────────────────────────────────────────────────

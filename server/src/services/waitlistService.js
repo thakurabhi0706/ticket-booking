@@ -22,7 +22,6 @@ import { sendWaitlistOffer } from '../realtime/sse.js';
  * Guard: category must be genuinely sold out.
  */
 export async function joinWaitlist(showId, categoryId, userId, seatsWanted) {
-  // Check that category is sold out
   const { rows: [avail] } = await pool.query(
     `SELECT COUNT(*) AS cnt
        FROM show_seats
@@ -34,7 +33,6 @@ export async function joinWaitlist(showId, categoryId, userId, seatsWanted) {
     throw E.conflict('NOT_SOLD_OUT', 'Seats are still available in this category. Waitlist is not open yet.');
   }
 
-  // Get user details
   const { rows: [user] } = await pool.query(
     `SELECT name, email FROM users WHERE id = $1`, [userId]
   );
@@ -49,7 +47,6 @@ export async function joinWaitlist(showId, categoryId, userId, seatsWanted) {
 
   if (!entry) throw E.conflict('ALREADY_ON_WAITLIST', 'You are already on the waitlist for this category.');
 
-  // Get position
   const { rows: [pos] } = await pool.query(
     `SELECT COUNT(*) AS position
        FROM waitlist_entries
@@ -96,7 +93,6 @@ export async function promoteWaitlist(client, showId, categoryId, freedSeats) {
     const tokenHash = sha256(token);
     const expiresAt = new Date(Date.now() + config.WAITLIST_OFFER_TTL_SECONDS * 1000);
 
-    // Get show info for email
     const { rows: [show] } = await client.query(
       `SELECT s.id, e.title AS event_title, s.starts_at, v.name AS venue_name
          FROM shows s
@@ -207,13 +203,11 @@ export async function expireOffers(client) {
   const notifications = [];
 
   for (const offer of expired) {
-    // Expire the entry
     await client.query(
       `UPDATE waitlist_entries SET status = 'EXPIRED' WHERE id = $1`,
       [offer.entry_id]
     );
 
-    // Free the seats back to AVAILABLE
     const { rows: freed } = await client.query(
       `UPDATE show_seats
           SET status = 'AVAILABLE', offered_to = NULL,
@@ -225,7 +219,6 @@ export async function expireOffers(client) {
 
     if (freed.length > 0) {
       affectedShows.add(offer.show_id);
-      // Group by category and re-promote
       const byCat = {};
       for (const s of freed) {
         if (!byCat[s.category_id]) byCat[s.category_id] = [];

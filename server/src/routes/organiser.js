@@ -10,23 +10,17 @@ const isOrg = [requireAuth, requireRole('ORGANISER', 'ADMIN')];
 const isAdmin = (req) => req.user.role === 'ADMIN';
 
 /**
- * Ownership scope for the event queries below.
- *
- * An ORGANISER may only ever touch rows they own, so every statement is filtered by
- * `organiser_id = $n`. An ADMIN administers the whole platform: passing NULL makes the
- * `($n IS NULL OR organiser_id = $n)` guard fall through, which is what lets an admin
- * create, schedule and report on events for every organiser rather than only their own.
+ * Ownership scope. An organiser is filtered to `organiser_id = $n`; an admin passes NULL,
+ * making the `($n IS NULL OR organiser_id = $n)` guard fall through to every event.
  */
 const scopeId = (req) => (isAdmin(req) ? null : req.user.sub);
 
-/** Resolve who an event should belong to. Admins may create on another organiser's behalf. */
+/** Admins may create on another organiser's behalf; organisers may not. */
 async function resolveOrganiserId(req) {
   const requested = req.body.organiserId;
   if (!requested) return req.user.sub;
 
   if (!isAdmin(req)) {
-    // An organiser writing someone else's id into the body must not be able to plant
-    // an event in their account.
     if (requested !== req.user.sub) {
       throw E.forbidden('Only an admin can create events on behalf of another organiser.');
     }
@@ -86,9 +80,7 @@ router.get('/events', ...isOrg, async (req, res, next) => {
     const { rows } = await pool.query(
       `SELECT e.*, u.name AS organiser_name,
               COUNT(DISTINCT s.id)::int AS show_count,
-              -- An event reaches customers only through a future SCHEDULED show, so the
-              -- dashboard reports live/draft from exactly the same condition /api/events
-              -- filters on. Anything else would let the two disagree.
+              -- Same condition /api/events filters on, so live/draft cannot disagree.
               COUNT(DISTINCT s.id) FILTER (
                 WHERE s.status = 'SCHEDULED' AND s.starts_at > now()
               )::int AS upcoming_show_count,
@@ -118,9 +110,7 @@ router.post('/events/:id/shows', ...isOrg, async (req, res, next) => {
 
     const { venueId, startsAt, prices } = req.body;
 
-    // Captured inside the transaction, responded to only after COMMIT.
     const result = await tx(async (c) => {
-      // Verify event belongs to this organiser
       const { rows: [event] } = await c.query(
         `SELECT id FROM events WHERE id = $1 AND ($2::uuid IS NULL OR organiser_id = $2)`,
         [req.params.id, scopeId(req)]
@@ -132,7 +122,6 @@ router.post('/events/:id/shows', ...isOrg, async (req, res, next) => {
         [req.params.id, venueId, startsAt]
       );
 
-      // Insert prices
       for (const { categoryId, price } of prices) {
         await c.query(
           `INSERT INTO show_category_prices (show_id, category_id, price) VALUES ($1,$2,$3)`,
@@ -140,9 +129,8 @@ router.post('/events/:id/shows', ...isOrg, async (req, res, next) => {
         );
       }
 
-      // Fan-out show_seats from venue_seats in ONE statement. A 120-seat venue was
-      // otherwise 120 round-trips, which is seconds of latency against a hosted DB.
-      // Price is snapshotted per seat from show_category_prices at creation time.
+      // One statement, not one per seat: 120 round-trips is seconds against a hosted DB.
+      // Price is snapshotted per seat at creation time.
       const { rowCount: seatsCreated } = await c.query(
         `INSERT INTO show_seats
            (show_id, venue_seat_id, category_id, row_label, seat_number, grid_row, grid_col, price)
@@ -288,9 +276,8 @@ router.patch('/events/:id', ...isOrg, async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// DELETE /api/organiser/events/:id
-// Refused once any show exists — dropping the event would cascade into seats and
-// bookings that customers have already paid for.
+// DELETE /api/organiser/events/:id — refused once any show exists, since that would
+// cascade into seats and bookings customers have already paid for.
 router.delete('/events/:id', ...isOrg, async (req, res, next) => {
   try {
     const { rows: [event] } = await pool.query(

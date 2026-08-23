@@ -30,7 +30,6 @@ export async function createBooking(holdGroupId, userId, customer) {
     bookingRef = generateReference();
     qrPayload  = generateQrPayload(bookingRef);
 
-    // Insert booking row
     const { rows: [booking] } = await c.query(
       `INSERT INTO bookings
          (reference, show_id, user_id, customer_name, customer_email, customer_phone,
@@ -44,15 +43,13 @@ export async function createBooking(holdGroupId, userId, customer) {
     );
     const bookingId = booking.id;
 
-    // Confirm seats (atomic — rolls back if any hold expired)
-    // All-or-nothing: every seat in the hold group must still be HELD by this user
-    // and inside its TTL. A partial match means the hold lapsed → roll back → 410.
+    // All-or-nothing: every seat must still be HELD by this user inside its TTL.
+    // A partial match means the hold lapsed → roll back → 410.
     bookedSeats = await confirmHold(c, holdGroupId, userId, bookingId);
     if (bookedSeats.length !== hold.seat_count) throw E.holdExpired();
 
     const total = bookedSeats.reduce((s, r) => s + parseFloat(r.price), 0);
 
-    // Insert booking_seats + update total
     for (const s of bookedSeats) {
       await c.query(
         `INSERT INTO booking_seats (booking_id, show_seat_id, price_paid) VALUES ($1,$2,$3)`,
@@ -65,9 +62,8 @@ export async function createBooking(holdGroupId, userId, customer) {
     show = hold;
   });
 
-  // Post-commit: notify (never inside the transaction).
-  // Recipients are resolved from the ACCOUNT, not just the checkout form, so the person
-  // who registered always hears about a booking made on their account.
+  // Post-commit, never inside the transaction. Recipients come from the ACCOUNT, not
+  // just the checkout form, so the registered owner always hears about the booking.
   setImmediate(async () => {
     try {
       const qrPng = await generateQR(qrPayload);
@@ -124,7 +120,6 @@ export async function cancelBooking(bookingId, userId) {
 
     freedSeats = await freeBookingSeats(c, bookingId);
 
-    // Promote waitlist per category
     const byCat = {};
     for (const s of freedSeats) {
       if (!byCat[s.category_id]) byCat[s.category_id] = [];
@@ -134,7 +129,6 @@ export async function cancelBooking(bookingId, userId) {
       notifications.push(...await promoteWaitlist(c, showId, categoryId, seats));
     }
 
-    // Send cancellation email to the account holder and the checkout contact.
     setImmediate(() => {
       notifyBookingCancelled({
         userId,

@@ -111,7 +111,7 @@ h4 { font-size: 1.1rem;  font-weight: 600; }
 /* ── Card ───────────────────────────────────────────────────── */
 .card {
   position: relative;
-  /* Translucent so the moving field shows faintly through the chrome. */
+  /* Translucent, so the field shows faintly through. */
   background: linear-gradient(160deg, rgba(28,28,28,0.92), rgba(20,20,20,0.94));
   backdrop-filter: blur(10px);
   border: 1px solid var(--col-border);
@@ -125,7 +125,7 @@ h4 { font-size: 1.1rem;  font-weight: 600; }
 .card-body { padding: 30px; }
 .card-sm .card-body { padding: 20px; }
 
-/* Opt-in 3D lift for interactive cards. */
+/* Opt-in lift for interactive cards. */
 .card-lift { transform-style: preserve-3d; will-change: transform; }
 .card-lift:hover {
   transform: translateY(-6px) rotateX(2.5deg);
@@ -384,19 +384,12 @@ tbody tr:hover { background: var(--col-border); }
   .card-lift:hover { transform: none; }
 }
 
-/* ============================================================
-   Ambient 3D background
-   Rendered once at the app root by <Background3D />. Every layer
-   is fixed, non-interactive, and sits below #root.
-   ============================================================ */
+/* ── Ambient 3D background — rendered once at the app root ─── */
 .bg3d {
   position: fixed;
   inset: 0;
-  /* MUST be negative. At z-index 0 this is a positioned element, which CSS paints
-     ABOVE every non-positioned in-flow block in the same stacking context — the
-     vignette then covered plain headings and paragraphs while positioned elements
-     (cards, nav) still showed through. -1 puts it behind in-flow content, and #root's
-     own stacking context keeps it from escaping behind the page background. */
+  /* MUST be negative. At 0 this positioned element paints ABOVE every non-positioned
+     in-flow block, so the vignette covered plain headings while cards showed through. */
   z-index: -1;
   pointer-events: none;
   overflow: hidden;
@@ -407,8 +400,7 @@ tbody tr:hover { background: var(--col-border); }
 
 .bg3d-canvas { position: absolute; inset: 0; }
 
-/* Blurred colour orbs drifting on long, offset cycles so the loop never reads
-   as a loop. `filter: blur()` on a large element is the cheap way to get this. */
+/* Offset cycles, so the loop never reads as a loop. */
 .bg3d-orb {
   position: absolute;
   border-radius: 50%;
@@ -448,8 +440,7 @@ tbody tr:hover { background: var(--col-border); }
   50%      { transform: translate3d(-38%, -62%, 0) scale(1.2); }
 }
 
-/* A perspective floor grid, receding toward the horizon. Gives the particle
-   field something to sit "on" so the depth reads as a space, not a screensaver. */
+/* Perspective floor grid — gives the particle field something to sit on. */
 .bg3d-grid {
   position: absolute;
   left: -50%;
@@ -649,12 +640,9 @@ tbody tr:hover { background: var(--col-border); }
   .event-card-poster { height: 190px; }
 }
 
-/* ============================================================
-   Admin control centre
-   .admin-scope re-points the accent token, so every button, badge
-   and focus ring inside the admin area turns violet without any
-   component needing to know it is being themed.
-   ============================================================ */
+/* ── Admin control centre ───────────────────────────────────
+   .admin-scope re-points the accent token, so everything inside
+   turns violet without any component knowing it is themed. */
 .admin-scope {
   --col-accent:    #8b6ce0;
   --col-accent-dk: #7050c8;

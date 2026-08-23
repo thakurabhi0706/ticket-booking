@@ -29,7 +29,7 @@ export async function holdSeats(showId, seatIds, userId) {
   const ttl = config.SEAT_HOLD_TTL_SECONDS;
 
   return await tx(async (c) => {
-    // Step 1 — Lock rows in deterministic order to prevent deadlocks
+    // Lock rows in deterministic order — out-of-order locking deadlocks.
     await c.query(
       `SELECT id FROM show_seats
         WHERE show_id = $1 AND id = ANY($2::uuid[])
@@ -38,7 +38,7 @@ export async function holdSeats(showId, seatIds, userId) {
       [showId, seatIds]
     );
 
-    // Step 2 — Atomic conditional UPDATE with lazy expiry
+    // Atomic conditional UPDATE, with lazy expiry of stale holds.
     const { rows: heldSeats } = await c.query(
       `UPDATE show_seats
           SET status          = 'HELD',
@@ -55,7 +55,6 @@ export async function holdSeats(showId, seatIds, userId) {
       [showId, seatIds, userId, holdGroupId, ttl]
     );
 
-    // Step 3 — Row count check
     if (heldSeats.length !== seatIds.length) {
       throw E.seatUnavailable();
     }
@@ -63,7 +62,6 @@ export async function holdSeats(showId, seatIds, userId) {
     const expiresAt = heldSeats[0].hold_expires_at;
     const total = heldSeats.reduce((sum, s) => sum + parseFloat(s.price), 0);
 
-    // Audit trail
     await c.query(
       `INSERT INTO seat_holds (id, show_id, user_id, seat_count, expires_at)
        VALUES ($1, $2, $3, $4, $5)`,

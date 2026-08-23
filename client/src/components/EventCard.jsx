@@ -19,16 +19,15 @@ function fallbackArt(title = '') {
 
 const MAX_TILT = 7; // degrees — past ~8 the text starts to smear
 
-/** Checked per-interaction, not once at module load, so a mid-session OS change is honoured. */
+/** Per-interaction, so a mid-session OS change is honoured. */
 const prefersReducedMotion = () =>
   window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export default function EventCard({ event }) {
   const ref = useRef(null);
 
-  // Tilt is driven from the pointer position rather than a CSS :hover so the card
-  // tracks the cursor across its face. Written straight to style to skip a re-render
-  // on every mousemove.
+  // Pointer-driven rather than CSS :hover so the card tracks the cursor. Written to
+  // style directly to skip a re-render per mousemove.
   const handleMove = (e) => {
     const el = ref.current;
     if (!el || prefersReducedMotion()) return;

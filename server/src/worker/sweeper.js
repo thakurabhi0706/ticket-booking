@@ -54,8 +54,8 @@ async function expireHolds(client) {
     );
   }
 
-  // Safety net: an ACTIVE audit row past its own deadline that owns no seats any
-  // more (e.g. its seats were re-held by someone else via lazy expiry).
+  // Safety net: an ACTIVE row past its deadline that no longer owns seats, because
+  // lazy expiry let someone else re-hold them.
   await client.query(
     `UPDATE seat_holds sh SET status='EXPIRED'
       WHERE sh.status='ACTIVE' AND sh.expires_at <= now()
@@ -72,8 +72,7 @@ async function sweep() {
     await client.query('BEGIN');
 
     try {
-      // Skip this pass if another instance is already sweeping. The lock is held
-      // for exactly this transaction and released by the COMMIT/ROLLBACK below.
+      // Skip if another instance is sweeping; the lock releases on COMMIT/ROLLBACK.
       const { rows: [{ got }] } = await client.query(
         `SELECT pg_try_advisory_xact_lock($1) AS got`, [config.SWEEP_LOCK_KEY]
       );
@@ -90,7 +89,6 @@ async function sweep() {
       // Only after COMMIT: the next person in line now has a claimable offer row.
       dispatchNotifications(notifications);
 
-      // Broadcast SSE updates for all affected shows
       const affectedShows = new Set([
         ...releasedHolds.map(r => r.show_id),
         ...offerShows,
@@ -117,7 +115,7 @@ async function sweep() {
 let sweeperInterval;
 
 export function startSweeper() {
-  // Run immediately on boot to catch up after a cold start / Render spin-down
+  // Run on boot to catch up after a cold start.
   sweep().catch(err => console.error('[sweeper] Boot sweep failed:', err.message));
 
   sweeperInterval = setInterval(sweep, config.SWEEPER_INTERVAL_MS);
