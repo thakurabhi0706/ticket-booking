@@ -21,7 +21,7 @@ function formatDate(d) {
   });
 }
 
-function bookingConfirmedHtml({ name, reference, eventTitle, startsAt, venueName, seats, total }) {
+function bookingConfirmedHtml({ name, reference, eventTitle, startsAt, venueName, seats, total, copyNotice }) {
   const seatList = seats.map(s => `<li><strong>${s.row_label}${s.seat_number}</strong> — ₹${s.price}</li>`).join('');
   return `
   <div style="font-family:Inter,sans-serif;max-width:560px;margin:0 auto;background:#f9fafb;padding:24px;border-radius:12px;">
@@ -42,6 +42,7 @@ function bookingConfirmedHtml({ name, reference, eventTitle, startsAt, venueName
       <p style="color:#374151;font-size:14px;margin:0 0 8px;">Seats:</p>
       <ul style="color:#374151;font-size:14px;">${seatList}</ul>
       <p style="color:#6b7280;font-size:12px;margin-top:16px;">Your QR code is attached. Present it at the venue entrance.</p>
+      ${copyNotice ? `<p style="color:#6b7280;font-size:12px;margin-top:8px;border-top:1px solid #e5e7eb;padding-top:8px;">${copyNotice}</p>` : ''}
     </div>
   </div>`;
 }

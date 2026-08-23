@@ -40,6 +40,7 @@ Below are the key UI views of CineWave:
 | **S2** | Confirmed booking, QR ticket email, waitlist auto-promotion | `services/bookingService.js`, `services/emailService.js`, `services/waitlistService.js` | ✅ |
 | **S3** | Admin venue & layout management | `routes/admin.js`, `/admin` route | ✅ |
 | **S4** | Admin platform-wide event administration (create for any organiser, schedule shows, revenue reports) | `routes/organiser.js` (`scopeId`), `/organiser` route | ✅ |
+| **S5** | Booking notification to the customer's registered email and phone | `services/notificationService.js`, `services/smsService.js` | ✅ |
 | **S4** | Organiser event & show creation with per-category pricing | `routes/organiser.js`, `/organiser` dashboard | ✅ |
 | **S5** | Customer browse and multi-filter events | `routes/events.js`, `Home.jsx` | ✅ |
 | **S6** | Visual seat map with real-time status (AVAILABLE/HELD/OFFERED/BOOKED) | `SeatMap.jsx`, `realtime/sse.js`, `useShowStream.js` | ✅ |
@@ -247,6 +248,41 @@ mail-less — but the customer does not get their ticket.
 
 Transport behaviour is covered by `tests/email.test.js`, which stubs `fetch` and asserts
 the exact payload each provider receives — no key, network or database needed.
+
+### Booking notifications
+
+Every confirmed booking notifies the customer on the contact details held against their
+**account**, not merely whatever was typed at checkout:
+
+| Channel | Who receives it |
+| --- | --- |
+| Email | The **registered** account address, always. If the checkout form carried a different address, a labelled copy goes there too. Duplicates are collapsed case-insensitively. |
+| SMS | Optional (`SMS_ENABLED=true`). The registered phone number, falling back to the checkout number. Sent once — SMS is billed per message. |
+
+Cancellations follow the same email audience. Both run after the transaction commits, and
+a channel failure is logged without affecting the booking.
+
+**Enabling SMS.** Four transports ship, all plain HTTPS with no new dependencies:
+
+| `SMS_PROVIDER` | Notes |
+| --- | --- |
+| `console` | Default. Logs the message instead of sending — exercises the whole path with no account or spend. |
+| `twilio` | Global. Indian destinations additionally require DLT registration. |
+| `msg91` | India-focused; needs a DLT-approved `MSG91_TEMPLATE_ID`. |
+| `fast2sms` | India-only. |
+
+```dotenv
+SMS_ENABLED=true
+SMS_PROVIDER=twilio
+SMS_DEFAULT_COUNTRY_CODE=91     # applied to bare 10-digit numbers
+TWILIO_ACCOUNT_SID=ACxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxx
+TWILIO_FROM=+15550001111
+```
+
+Numbers are normalised to E.164 before sending, so a customer typing `98765 43210`
+becomes `+919876543210`. The API reports its SMS configuration at boot and warns when the
+selected provider cannot actually deliver.
 
 **Demo tip:** set `SEAT_HOLD_TTL_SECONDS=60` and `WAITLIST_OFFER_TTL_SECONDS=120` when
 demonstrating, so hold expiry and offer roll-over are visible in under two minutes

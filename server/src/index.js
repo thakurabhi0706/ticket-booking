@@ -9,6 +9,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import { startSweeper } from './worker/sweeper.js';
 import { clientCount } from './realtime/sse.js';
 import { reportMailConfig } from './services/emailService.js';
+import { reportSmsConfig } from './services/smsService.js';
 
 // Routes
 import authRoutes      from './routes/auth.js';
@@ -69,6 +70,7 @@ app.listen(PORT, () => {
   console.log(`\n🎟  CineWave API running on port ${PORT} [${config.NODE_ENV}]`);
   console.log(`   Health: http://localhost:${PORT}/api/health\n`);
   reportMailConfig();
+  reportSmsConfig();
   startSweeper();
 });
 

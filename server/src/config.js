@@ -51,6 +51,17 @@ export const config = {
   MAIL_REDIRECT_TO: optional('MAIL_REDIRECT_TO', ''),
   MAIL_FALLBACK_TO: optional('MAIL_FALLBACK_TO', ''),
 
+  // ---- SMS ----
+  SMS_ENABLED: optional('SMS_ENABLED', 'false') === 'true',
+  SMS_PROVIDER: optional('SMS_PROVIDER', 'console'),   // console | twilio | msg91 | fast2sms
+  SMS_DEFAULT_COUNTRY_CODE: optional('SMS_DEFAULT_COUNTRY_CODE', '91'),
+  TWILIO_ACCOUNT_SID: optional('TWILIO_ACCOUNT_SID', ''),
+  TWILIO_AUTH_TOKEN: optional('TWILIO_AUTH_TOKEN', ''),
+  TWILIO_FROM: optional('TWILIO_FROM', ''),
+  MSG91_AUTH_KEY: optional('MSG91_AUTH_KEY', ''),
+  MSG91_TEMPLATE_ID: optional('MSG91_TEMPLATE_ID', ''),
+  FAST2SMS_API_KEY: optional('FAST2SMS_API_KEY', ''),
+
   TICKET_SIGNING_SECRET: required('TICKET_SIGNING_SECRET'),
 
   ADMIN_EMAIL: optional('ADMIN_EMAIL', 'admin@ticketing.dev'),

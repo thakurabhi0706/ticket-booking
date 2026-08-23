@@ -15,11 +15,23 @@ export default function Checkout() {
   const [form, setForm]       = useState({
     name: user?.name || '',
     email: user?.email || '',
-    phone: '',
+    phone: user?.phone || '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]     = useState(null);
   const beaconSent = useRef(false);
+
+  // AuthContext resolves /auth/me asynchronously, so on a direct load `user` is still
+  // null at mount and the initial state above lands empty. Fill the blanks once it
+  // arrives, without clobbering anything already typed.
+  useEffect(() => {
+    if (!user) return;
+    setForm(f => ({
+      name:  f.name  || user.name  || '',
+      email: f.email || user.email || '',
+      phone: f.phone || user.phone || '',
+    }));
+  }, [user]);
 
   // Fetch the hold if we didn't arrive with it in router state (direct link, refresh).
   // Both sources now share one shape: { holdGroupId, expiresAt, seats, total }.
@@ -127,11 +139,18 @@ export default function Checkout() {
                 <label className="form-label" htmlFor="checkout-email">Email *</label>
                 <input id="checkout-email" type="email" className="form-input" required value={form.email}
                   onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
+                {user?.email && form.email.trim().toLowerCase() !== user.email.toLowerCase() && (
+                  <span className="text-xs text-dim">
+                    A confirmation also goes to your registered address ({user.email}).
+                  </span>
+                )}
               </div>
               <div className="form-group">
                 <label className="form-label" htmlFor="checkout-phone">Phone</label>
                 <input id="checkout-phone" type="tel" className="form-input" value={form.phone}
+                  placeholder="9876543210"
                   onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                <span className="text-xs text-dim">Used for an SMS confirmation, when enabled.</span>
               </div>
 
               {error && <div className="alert alert-error">{error}</div>}

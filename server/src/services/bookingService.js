@@ -7,7 +7,7 @@ import { confirmHold, freeBookingSeats } from './seatService.js';
 import { promoteWaitlist, dispatchNotifications } from './waitlistService.js';
 import { generateReference, generateQrPayload } from '../utils/reference.js';
 import { generateQR } from './qrService.js';
-import { sendEmail } from './emailService.js';
+import { notifyBookingConfirmed, notifyBookingCancelled } from './notificationService.js';
 import { broadcastSeatUpdate } from '../realtime/sse.js';
 import { config } from '../config.js';
 
@@ -65,24 +65,29 @@ export async function createBooking(holdGroupId, userId, customer) {
     show = hold;
   });
 
-  // Post-commit: send email (never inside the transaction)
+  // Post-commit: notify (never inside the transaction).
+  // Recipients are resolved from the ACCOUNT, not just the checkout form, so the person
+  // who registered always hears about a booking made on their account.
   setImmediate(async () => {
     try {
       const qrPng = await generateQR(qrPayload);
-      await sendEmail('BOOKING_CONFIRMED', {
-        to: customer.email,
-        name: customer.name,
-        reference: bookingRef,
-        eventTitle: show.event_title,
-        startsAt: show.starts_at,
-        venueName: show.venue_name,
-        seats: bookedSeats,
-        total: bookedSeats.reduce((s, r) => s + parseFloat(r.price), 0),
-        qrPng,
-        qrPayload,
+      await notifyBookingConfirmed({
+        userId,
+        customer,
+        booking: {
+          reference: bookingRef,
+          eventTitle: show.event_title,
+          startsAt: show.starts_at,
+          venueName: show.venue_name,
+          seats: bookedSeats,
+          seatCount: bookedSeats.length,
+          total: bookedSeats.reduce((s, r) => s + parseFloat(r.price), 0),
+          qrPng,
+          qrPayload,
+        },
       });
     } catch (err) {
-      console.error('[booking] Email/QR failed:', err.message);
+      console.error('[booking] Notification/QR failed:', err.message);
     }
   });
 
@@ -129,11 +134,12 @@ export async function cancelBooking(bookingId, userId) {
       notifications.push(...await promoteWaitlist(c, showId, categoryId, seats));
     }
 
-    // Send cancellation email
+    // Send cancellation email to the account holder and the checkout contact.
     setImmediate(() => {
-      sendEmail('BOOKING_CANCELLED', {
-        to: booking.customer_email,
-        name: booking.customer_name,
+      notifyBookingCancelled({
+        userId,
+        customerEmail: booking.customer_email,
+        customerName: booking.customer_name,
         reference: booking.reference,
       }).catch(() => {});
     });
