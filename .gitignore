@@ -1,0 +1,32 @@
+# dependencies
+node_modules/
+.pnp/
+.yarn/
+
+# env & secrets
+.env
+.env.*
+!.env.example
+
+# build artifacts
+dist/
+build/
+out/
+.next/
+.vercel/
+*.tsbuildinfo
+
+# editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.swp
+
+# logs & runtime
+logs/
+*.log
+npm-debug.log*
+coverage/
+.nyc_output/
+tmp/

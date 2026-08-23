@@ -1,0 +1,282 @@
+/* ============================================================
+   seatmap.css — Seat map and booking UI styles
+   ============================================================ */
+
+/* One token drives seat boxes, row labels and grid tracks together — they must stay
+   the same height or the labels drift out of line with their rows. */
+:root {
+  --seat-size: 34px;
+  --seat-gap: 5px;
+}
+
+/* ── Stage / Screen bar ─────────────────────────────────────── */
+.seatmap-wrapper {
+  overflow-x: auto;
+  padding-bottom: 20px;
+}
+
+.screen-bar {
+  text-align: center;
+  padding: 11px 40px;
+  margin: 0 auto 44px;
+  border-top: 3px solid var(--col-accent-dk);
+  color: var(--col-text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  max-width: 560px;
+  border-radius: 0 0 50% 50%;
+  /* Tips the screen away from the viewer so the map reads as a room, not a table. */
+  transform: perspective(560px) rotateX(26deg);
+  transform-origin: 50% 0;
+  background: linear-gradient(to bottom, rgba(212,168,83,0.16), transparent);
+  box-shadow: 0 -12px 40px rgba(212,168,83,0.14);
+}
+
+/* ── Row labels ─────────────────────────────────────────────── */
+.seatmap-outer {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.seatmap-row-labels {
+  display: flex;
+  flex-direction: column;
+  gap: var(--seat-gap);
+  padding-top: 2px;
+}
+
+.row-label-item {
+  height: var(--seat-size);
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  color: var(--col-text-dim);
+  font-weight: 500;
+}
+
+/* ── Seat grid ──────────────────────────────────────────────── */
+.seat-grid {
+  display: grid;
+  gap: var(--seat-gap);
+}
+
+/* ── Individual seat ─────────────────────────────────────────── */
+.seat {
+  width: var(--seat-size);
+  height: var(--seat-size);
+  border-radius: 6px 6px 3px 3px;
+  border: 1px solid;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.66rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), border-color 150ms ease, background 150ms ease, box-shadow 150ms ease;
+  font-family: 'Inter', sans-serif;
+  position: relative;
+}
+
+.seat:hover:not(:disabled) {
+  transform: scale(1.15);
+  z-index: 2;
+}
+
+.seat:disabled { cursor: not-allowed; }
+
+/* Available — uses category colour via CSS variable */
+.seat--available {
+  background: var(--seat-bg, #1e3a2f);
+  border-color: var(--seat-border, #2e7d52);
+  color: var(--seat-text, #6ecc9a);
+}
+.seat--available:hover:not(:disabled) {
+  background: var(--seat-bg-hover, #2e5a3f);
+}
+
+/* Selected by current user */
+.seat.is-selected {
+  background: var(--col-selected-bg);
+  border-color: var(--col-selected);
+  color: #7eb8f5;
+}
+.seat.is-selected:hover:not(:disabled) {
+  transform: scale(1.1);
+}
+
+/* Held by someone — amber, no pulse (no AI aesthetics) */
+.seat--held {
+  background: var(--col-held-bg);
+  border-color: var(--col-held);
+  color: var(--col-held);
+  cursor: not-allowed;
+}
+
+/* Offered via waitlist */
+.seat--offered {
+  background: rgba(124,92,158,0.15);
+  border-color: #7c5c9e;
+  color: #a580cc;
+  cursor: not-allowed;
+}
+
+/* Booked / confirmed */
+.seat--booked {
+  background: var(--col-border);
+  border-color: var(--col-border-md);
+  color: var(--col-text-dim);
+  cursor: not-allowed;
+}
+
+/* Blocked (admin-disabled) */
+.seat--blocked {
+  background: transparent;
+  border-color: var(--col-border);
+  color: var(--col-border-md);
+  cursor: not-allowed;
+  opacity: 0.4;
+}
+
+/* ── Legend ─────────────────────────────────────────────────── */
+.seatmap-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 24px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  color: var(--col-text-muted);
+}
+
+.legend-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 3px;
+  border: 1px solid;
+}
+
+/* Category colour swatches */
+.legend-swatch.available { background: #1e3a2f; border-color: #2e7d52; }
+.legend-swatch.selected  { background: var(--col-selected-bg); border-color: var(--col-selected); }
+.legend-swatch.held      { background: var(--col-held-bg); border-color: var(--col-held); }
+.legend-swatch.offered   { background: rgba(124,92,158,0.15); border-color: #7c5c9e; }
+.legend-swatch.booked    { background: var(--col-border); border-color: var(--col-border-md); }
+
+/* ── Selection tray ─────────────────────────────────────────── */
+.selection-tray {
+  position: sticky;
+  bottom: 0;
+  background: rgba(15,15,15,0.96);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid var(--col-border);
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.tray-seats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.tray-seat-chip {
+  background: var(--col-selected-bg);
+  border: 1px solid var(--col-selected);
+  border-radius: 4px;
+  padding: 3px 8px;
+  font-size: 0.8rem;
+  color: #7eb8f5;
+}
+
+.tray-total {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--col-text);
+}
+
+/* ── Countdown bar ──────────────────────────────────────────── */
+.countdown-bar {
+  background: var(--col-surface);
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.countdown-time {
+  font-size: 2rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+  color: var(--col-text);
+  transition: color var(--transition);
+}
+.countdown-time.urgent { color: var(--col-danger); }
+
+.countdown-label {
+  font-size: 0.8rem;
+  color: var(--col-text-muted);
+  line-height: 1.4;
+}
+.countdown-label strong { color: var(--col-text); display: block; }
+
+/* ── Category pricing chips ─────────────────────────────────── */
+.price-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.price-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--col-surface);
+  border: 1px solid var(--col-border);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  font-size: 0.85rem;
+}
+
+.price-chip-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.price-chip-price { font-weight: 700; color: var(--col-text); }
+.price-chip-avail { color: var(--col-text-dim); font-size: 0.75rem; }
+
+
+/* Seats lift toward the viewer on hover — same 3D language as the cards. */
+.seat:not(:disabled):hover {
+  transform: translateY(-3px) scale(1.14);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.45);
+  z-index: 2;
+}
+
+@media (max-width: 768px) {
+  :root { --seat-size: 28px; --seat-gap: 4px; }
+  .screen-bar { max-width: 420px; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .seat:not(:disabled):hover { transform: none; }
+}
